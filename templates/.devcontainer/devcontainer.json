@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
+  "name": "dev-toolbox",
+  "image": "localhost/dev-toolbox:fedora-43",
+  "containerEnv": {
+    "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
+    "UV_TOOL_DIR": "/opt/uv-tools",
+    "UV_TOOL_BIN_DIR": "/usr/local/bin"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "DavidAnson.vscode-markdownlint",
+        "timonwong.shellcheck",
+        "foxundermoon.shell-format",
+        "EditorConfig.EditorConfig",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  }
+}

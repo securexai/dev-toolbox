@@ -1,0 +1,13 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Build artifacts
+*.log
+*.tar.gz
+
+# Local podman/toolbox state (not committed)
+.podman/
+.toolbox-state/

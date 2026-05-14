@@ -1,0 +1,36 @@
+# Markdown lint config for dev-toolbox's own repo docs.
+# Templates intended for other repos live under templates/ and are skipped
+# (they share filenames with the root config, which would confuse the linter).
+
+config:
+  MD013:
+    line_length: 120
+    code_blocks: false
+    tables: false
+    headings: false
+  MD024:
+    allow_different_nesting: true
+    siblings_only: true
+  MD033:
+    allowed_elements:
+      - br
+      - details
+      - summary
+      - sub
+      - sup
+      - kbd
+      - img
+  MD040: true
+  MD045: true
+  MD047: true
+  MD051: true
+  MD053: true
+  MD056: true
+  MD059: true
+  MD060: false
+
+ignores:
+  - "node_modules/**"
+  - "templates/**"
+
+fix: true
