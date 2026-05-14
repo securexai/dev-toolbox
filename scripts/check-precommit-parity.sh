@@ -47,21 +47,18 @@ readonly REPO_ROOT
 readonly ROOT_CFG="${REPO_ROOT}/.pre-commit-config.yaml"
 readonly TPL_CFG="${REPO_ROOT}/templates/.pre-commit-config.yaml"
 
+# This is a checker: success is silent, failure is loud. No `log` or `warn`
+# helpers — re-introduce the full setup.sh / bootstrap-repo.sh trio atomically
+# with the first caller that needs them.
 if [[ -t 2 ]] && [[ -z "${NO_COLOR:-}" ]]; then
-  readonly _C_INFO=$'\e[1;34m'
-  readonly _C_WARN=$'\e[1;33m'
   readonly _C_ERR=$'\e[1;31m'
   readonly _C_OFF=$'\e[0m'
 else
-  readonly _C_INFO=''
-  readonly _C_WARN=''
   readonly _C_ERR=''
   readonly _C_OFF=''
 fi
 
-log()   { printf '%s[INFO]%s  %s\n' "${_C_INFO}" "${_C_OFF}" "$*" >&2; }
-warn()  { printf '%s[WARN]%s  %s\n' "${_C_WARN}" "${_C_OFF}" "$*" >&2; }
-error() { printf '%s[ERROR]%s %s\n' "${_C_ERR}"  "${_C_OFF}" "$*" >&2; }
+error() { printf '%s[ERROR]%s %s\n' "${_C_ERR}" "${_C_OFF}" "$*" >&2; }
 
 die() {
   local code=${1:-1}
