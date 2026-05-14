@@ -69,3 +69,18 @@ repos:
         # Templates' own .markdownlint-cli2.yaml is for downstream consumers;
         # the root .markdownlint-cli2.yaml ignores templates/ already, so
         # this hook only sees the dev-toolbox docs themselves.
+
+  # ---------------------------------------------------------------------------
+  # Local: parity check between the dogfood gate (this file) and the gate
+  # shipped to downstream repos (templates/.pre-commit-config.yaml). Fires
+  # whenever either YAML is staged; bails loud if their (repo, rev) pin sets
+  # diverge. Local hook = does NOT mirror into templates/, by design.
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: precommit-config-parity
+        name: Pre-commit config parity (root vs templates)
+        entry: scripts/check-precommit-parity.sh
+        language: script
+        files: '^(\.pre-commit-config\.yaml|templates/\.pre-commit-config\.yaml)$'
+        pass_filenames: false

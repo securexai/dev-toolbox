@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `scripts/check-precommit-parity.sh` plus a `local` pre-commit hook that
+  asserts the dogfood `.pre-commit-config.yaml` and the downstream
+  `templates/.pre-commit-config.yaml` share the same `(repo, rev)` pin
+  set. Fires whenever either YAML is staged; prints a unified diff and
+  exits non-zero on drift. Pure-bash extraction (no `yq` / `awk`
+  dependency) so it runs anywhere the toolbox does.
 - Initial fork from `scripts/.toolbox/`.
 - `Containerfile` builds `localhost/dev-toolbox:fedora-43` with uv, ruff,
   pre-commit, betterleaks, pnpm, commitlint, markdownlint-cli2, shellcheck,

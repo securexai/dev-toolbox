@@ -86,7 +86,8 @@ validate the toolbox itself.
 | Reset the whole dev env | `toolbox rm dev && ./setup.sh` |
 | Run the dogfood pre-commit gate | `pre-commit run --all-files` |
 | Run a single hook | `pre-commit run shellcheck --all-files` |
-| Static shell lint (parity with CI gate) | `pnpm dlx shellcheck@4.1.0 setup.sh bootstrap-repo.sh` |
+| Check pre-commit config parity (root ↔ templates) | `./scripts/check-precommit-parity.sh` |
+| Static shell lint (parity with CI gate) | `pnpm dlx shellcheck@4.1.0 setup.sh bootstrap-repo.sh scripts/*.sh` |
 | Static markdown lint (parity with CI gate) | `pnpm dlx markdownlint-cli2@0.22.1 --no-globs '**/*.md'` |
 | Bump pinned hook revisions | `pre-commit autoupdate` |
 
@@ -124,7 +125,10 @@ for anything other than user identity / VS Code Server, stop and rethink
 - **`templates/*`**: changes here affect every downstream repo that runs
   `bootstrap-repo.sh`. Test a template change by re-running the bootstrap
   script with `--force` against `test-bootstrap` and confirming
-  `pre-commit run --all-files` still passes there.
+  `pre-commit run --all-files` still passes there. If you bump a hook
+  revision in `templates/.pre-commit-config.yaml`, bump the same line in
+  the root `.pre-commit-config.yaml` too — the parity hook will fail the
+  commit otherwise.
 - **`PLAN.md`**: append to the iteration log when a change responds to a
   code-reviewer finding. The acceptance criteria block is the contract
   for what "A+" means here.
