@@ -30,6 +30,12 @@ Use dev-toolbox when **all four** of the following are true:
   comfortable running an editor inside the toolbox itself (`nvim`, `helix`,
   `emacs -nw`).
 
+The container image itself is pinned to `fedora-toolbox:43` regardless of
+host version, so the host/toolbox skew of a Fedora 44 host running a 43
+toolbox is the supported configuration — that is how `toolbox` is designed
+to be used, and the pinned image is what gives every host the same tool
+versions.
+
 If you only need the linter/formatter/scanner suite installed on the **host**
 (and you do not need the workspace to be disposable), the lighter-weight
 [`repo-bootstrap` skill][repo-bootstrap-skill] is the right tool. dev-toolbox
@@ -148,8 +154,17 @@ Pinned binaries (sha256-verified where the upstream publishes a checksum):
 | `ruff` | latest at image build | `/opt/uv-tools/`, on PATH |
 | `betterleaks` | `1.1.2` (sha256-pinned) | `/usr/local/bin/betterleaks` |
 | `pnpm` | `11.0.3` (sha256-pinned) | `/opt/pnpm/`, on PATH |
-| `@commitlint/cli` | latest at image build (pnpm-installed) | `/usr/local/bin/commitlint` |
-| `markdownlint-cli2` | latest at image build (pnpm-installed) | `/usr/local/bin/markdownlint-cli2` |
+| `@commitlint/cli` | latest at image build (pnpm-installed, ad-hoc CLI only) | `/usr/local/bin/commitlint` |
+| `markdownlint-cli2` | latest at image build (pnpm-installed, ad-hoc CLI only) | `/usr/local/bin/markdownlint-cli2` |
+
+> [!NOTE]
+> The commitlint pre-commit hook is `language: node` and self-provisions
+> `@commitlint/cli` + `@commitlint/config-conventional` via
+> `additional_dependencies` in `templates/.pre-commit-config.yaml`. The
+> markdownlint-cli2 hook is version-pinned via the hook repo's `rev:` tag
+> (no `additional_dependencies` block). Either way, the pnpm-installed
+> binaries above are for ad-hoc terminal use inside the toolbox — they are
+> not what runs during `pre-commit run`.
 
 Refresh the floating versions by rebuilding the image: `REBUILD=1 ./setup.sh`.
 

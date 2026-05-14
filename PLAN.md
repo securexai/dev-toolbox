@@ -2,7 +2,6 @@
 
 Status: completed at A+ (locally-runnable criteria); user-verified runbook
 shipped for the remaining container-runtime criteria.
-Owner: securexai
 Started: 2026-05-13.
 
 ## Goal
@@ -44,8 +43,7 @@ The deliverable is **A+** when, and only when, all of the following hold:
    install` did not leak into `$HOME`.
 6. `pnpm dlx markdownlint-cli2@0.22.1` and `pnpm dlx shellcheck@4.1.0`
    report **0 errors** across every script and markdown file in the repo,
-   using the gates documented in
-   `/home/conpwxp/repos/review/CLAUDE.md`.
+   using the gates documented in the internal review repo's `CLAUDE.md`.
 7. The `code-reviewer` subagent reports **no Critical and no Warning**
    findings on its final pass; remaining Suggestions are explicitly
    accepted as deliberate trade-offs in this plan.
@@ -61,15 +59,15 @@ hand-off.
 
 | ID | Task | Status | Notes |
 | --- | --- | --- | --- |
-| 1 | Install local validation tools (pnpm-based) | done | markdownlint-cli2 v0.22.1, shellcheck 0.11.0 reachable via `pnpm dlx`. |
-| 2 | Containerfile, setup.sh, bootstrap-repo.sh | done | All scripts under `/home/conpwxp/repos/dev-toolbox/`. |
+| 1 | Install local validation tools (pnpm-based) | done | markdownlint-cli2 v0.22.1, shellcheck@4.1.0 reachable via `pnpm dlx`. |
+| 2 | Containerfile, setup.sh, bootstrap-repo.sh | done | All scripts at the repo root. |
 | 3 | Six templates + own-repo configs | done | Under `templates/`. Azure AD client-secret regex tightened with assignment context. |
 | 4 | Project docs (README, INSTALL, PLAN, CHANGELOG, CONTRIBUTING) | done | This file is the plan. |
 | 5 | Static validation: `bash -n`, shellcheck, markdownlint | done | 0 errors on all 5 docs and both scripts (acceptance criterion 6). |
 | 6 | Code-reviewer agent iteration | done | Pass 1: 0 Critical / 0 Warnings / 3 Suggestions. Pass 2: 0 / 0 / 0 - A+ confirmed (acceptance criterion 7). |
-| 7 | Create test repo `test-bootstrap` | done | At `/home/conpwxp/repos/test-bootstrap/`. Exercised the file-copy + idempotency + `--force` + negative-path behaviour. |
-| 8 | E2E runbook (user-verified on Fedora host) | done | Documented in `review/dev-toolbox-deployment.md` under "User-verified E2E runbook" (acceptance 1-5). |
-| 9 | Final report at `review/dev-toolbox-deployment.md` | done | Workspace deliverable; lints clean under the workspace gate. |
+| 7 | Create test repo `test-bootstrap` | done | Sibling repo `test-bootstrap` next to this one. Exercised the file-copy + idempotency + `--force` + negative-path behaviour. |
+| 8 | E2E runbook (user-verified on Fedora host) | done | Documented in `dev-toolbox-deployment.md` in the internal review repo under "User-verified E2E runbook" (acceptance 1-5). |
+| 9 | Final report at `dev-toolbox-deployment.md` in the internal review repo | done | Workspace deliverable; lints clean under the workspace gate. |
 
 ## Iteration log
 
@@ -120,7 +118,7 @@ idempotency, no command injection, no docs/code drift) all still hold.
 The acceptance bar in this plan is satisfied. The remaining acceptance
 criteria 1, 2, 3, 4, 5 require a Fedora host with `podman` and `toolbox`
 installed; copy-paste commands and expected outputs are recorded in
-`/home/conpwxp/repos/review/dev-toolbox-deployment.md` under
+`dev-toolbox-deployment.md` in the internal review repo under
 "User-verified E2E runbook".
 
 ## Out of scope

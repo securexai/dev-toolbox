@@ -7,7 +7,10 @@ steps are idempotent.
 
 - Fedora 43 or 44 with `podman` and `toolbox` available
   (default on Silverblue/Kinoite; install on Workstation with
-  `sudo dnf install -y podman toolbox`).
+  `sudo dnf install -y podman toolbox`). The toolbox image is pinned to
+  `fedora-toolbox:43` regardless of host — a Fedora 44 host running a 43
+  toolbox is the supported configuration and is how `toolbox` is designed
+  to work.
 - `git` working tree of this repo (no network access required after clone).
 - Bash 5.3+ (Fedora 43 default).
 - `libatomic` is installed inside the toolbox image, so no host-side
@@ -44,7 +47,7 @@ git clone <repo-url> myrepo
 
 `bootstrap-repo.sh`:
 
-1. Verifies the target is a git worktree (`.git` directory present).
+1. Verifies the target is a git worktree (`.git` entry present).
 2. Drops six template files at the repo root, skipping any that already
    exist (pass `--force` to overwrite).
 3. Wires pre-commit into `.git/hooks/` for the `pre-commit` and

@@ -42,8 +42,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   pinned via mise. A mise-managed shadow set would either install tools into
   `$HOME` (defeating the disposal goal) or duplicate the baked toolchain.
 
-## Source
+### Source
 
-Forked from `/home/conpwxp/repos/review/scripts/.toolbox/` on 2026-05-13.
-That toolbox is amd64-only and targets Fedora 43; same constraints carry
-over here.
+Forked from the `scripts/.toolbox/` reference in the internal review repo
+on 2026-05-13. That toolbox is amd64-only and targets Fedora 43; same
+constraints carry over here.

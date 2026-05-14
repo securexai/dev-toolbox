@@ -7,15 +7,19 @@
 #
 # Forked from scripts/.toolbox/Containerfile with three host-leak fixes:
 #   1. ENV UV_TOOL_DIR + UV_TOOL_BIN_DIR so post-build `uv tool install` lands
-#      in /opt/uv-tools, not ~/.local/share/uv (see line 50 below).
+#      in /opt/uv-tools, not ~/.local/share/uv (set in the `ENV UV_TOOL_DIR`
+#      directive below).
 #   2. ENV PRE_COMMIT_HOME so pre-commit hook environments cache in
-#      /opt/pre-commit-cache, not ~/.cache/pre-commit (see line 53 below).
+#      /opt/pre-commit-cache, not ~/.cache/pre-commit (set in the
+#      `ENV PRE_COMMIT_HOME` directive below).
 #   3. /srv/work as the workspace root for cloned repos — outside the
 #      bind-mounted $HOME, so the repo dies with `toolbox rm`. Created by
 #      the final `RUN mkdir -p /srv/work` block near the end of this file.
 #
-# Base image is digest-pinned to make the build reproducible across upstream
-# tag churn. Refresh the digest deliberately and record the source date.
+# Tag-pinned to fedora-toolbox:43. Image integrity rides on the Fedora
+# registry's HTTPS chain and the dnf GPG verification inside the build.
+# For stricter reproducibility, replace ":43" with "@sha256:<digest>" and
+# record the digest's source date here.
 
 FROM registry.fedoraproject.org/fedora-toolbox:43
 
@@ -55,6 +59,11 @@ ENV UV_TOOL_BIN_DIR=/usr/local/bin
 # defaults to ~/.cache/pre-commit. Redirect to /opt and make the directory
 # world-writable so the host UID (which toolbox enters with) can write there.
 ENV PRE_COMMIT_HOME=/opt/pre-commit-cache
+# Mode 1777 (world-writable + sticky) is intentional: toolbox enters with
+# the host user's UID, which is not known at image build time. These cache
+# dirs must be writable by whoever enters the container. Sticky bit keeps
+# the cleanup story sane on shared hosts. In a single-user toolbox the
+# practical exposure is the same as $HOME being writable by you.
 RUN mkdir -p /opt/pre-commit-cache /opt/uv-tools \
  && chmod 1777 /opt/pre-commit-cache /opt/uv-tools
 
@@ -110,6 +119,14 @@ RUN set -eu; \
     rm -rf "${tmp}"; \
     mkdir -p /opt/pnpm-global; \
     pnpm --version; \
+    # These pnpm globals are for ad-hoc CLI use inside the toolbox
+    # (e.g. `commitlint --help`, one-off `markdownlint-cli2 README.md`).
+    # The actual pre-commit gate versions are pinned in
+    # templates/.pre-commit-config.yaml: commitlint pins
+    # `@commitlint/cli` and `@commitlint/config-conventional` via
+    # `additional_dependencies`; markdownlint-cli2 is version-pinned via
+    # the hook repo's `rev:` tag. Image binary != gate binary by design —
+    # refresh either side independently.
     pnpm add -g \
       --global-dir=/opt/pnpm-global \
       --global-bin-dir=/usr/local/bin \

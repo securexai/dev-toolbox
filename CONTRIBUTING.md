@@ -40,7 +40,7 @@ The repo runs its own pre-commit baseline:
 | --- | --- | --- |
 | pre-commit-hooks (hygiene) | pre-commit | trailing whitespace, EOL drift, merge markers, large files |
 | betterleaks | pre-commit | hardcoded secrets |
-| no-commit-to-branch (`main`) | pre-commit | direct commits to `main` |
+| no-commit-to-branch (`main`, `master`, `develop`, `release/*`) | pre-commit | direct commits to protected branches |
 | shellcheck | pre-commit | shell lint violations |
 | markdownlint-cli2 | pre-commit | markdown lint violations |
 | commitlint | commit-msg | non-conventional commit messages |
