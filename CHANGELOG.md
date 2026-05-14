@@ -27,6 +27,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Documentation: clarified that Bash 5.3+ ships by default on both
+  Fedora 43 and 44, matching the existing "Fedora 43 or 44" host-support
+  statement in [README.md](README.md) and [INSTALL.md](INSTALL.md).
 - Tightened the `azure-ad-client-secret` rule in
   `templates/.betterleaks.toml` to require an assignment context
   (`=` or `:`) before the secret value. The original rule (inherited from

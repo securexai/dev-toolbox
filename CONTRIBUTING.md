@@ -17,7 +17,7 @@ pre-commit install --install-hooks
 ```
 
 All scripts assume Bash 5.3+. Inside the toolbox, `bash --version` should
-report 5.3.x or newer (Fedora 43's default).
+report 5.3.x or newer (Fedora 43 and 44 default).
 
 ## Coding standards
 

@@ -12,7 +12,7 @@ steps are idempotent.
   toolbox is the supported configuration and is how `toolbox` is designed
   to work.
 - `git` working tree of this repo (no network access required after clone).
-- Bash 5.3+ (Fedora 43 default).
+- Bash 5.3+ (Fedora 43 and 44 default).
 - `libatomic` is installed inside the toolbox image, so no host-side
   `libatomic` package is needed.
 
