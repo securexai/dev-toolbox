@@ -35,6 +35,9 @@ repos:
       - id: no-commit-to-branch
         args:
           - --branch=main
+          - --branch=master
+          - --branch=develop
+          - --pattern=^release/.*
 
   - repo: https://github.com/betterleaks/betterleaks
     rev: v1.1.2
