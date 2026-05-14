@@ -80,7 +80,7 @@ Defaults:
 
 Flags:
   --force        Overwrite files that already exist.
-  --target PATH  Target git worktree (must contain a .git directory).
+  --target PATH  Target git worktree (must contain a .git entry).
   -h, --help     Show this help.
 EOF
 }
@@ -111,8 +111,8 @@ done
 orig_target="${target}"
 target="$(cd -- "${target}" 2>/dev/null && pwd)" \
   || die 66 "target not a directory: ${orig_target}"
-[[ -d "${target}/.git" ]] \
-  || die 66 "target is not a git worktree (missing .git): ${target}"
+[[ -e "${target}/.git" ]] \
+  || die 66 "target is not a git worktree (no .git entry): ${target}"
 
 log "target: ${target}"
 
