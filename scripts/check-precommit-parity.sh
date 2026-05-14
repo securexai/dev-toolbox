@@ -14,9 +14,17 @@
 # are skipped — local hooks are repo-specific gates and are not expected to
 # mirror into templates/.
 #
+# Usage:
+#   ./scripts/check-precommit-parity.sh
+#
+# Env:
+#   TRACE     - "1" enables bash xtrace
+#   NO_COLOR  - any value suppresses ANSI colors
+#
 # Exit codes follow sysexits.h conventions:
 #   0  - configs match
-#   1  - configs diverge (unified diff printed to stderr)
+#   1  - configs diverge (unified diff printed to stderr) OR unsupported
+#        YAML form encountered (bare '-' continuation list item)
 #   66 - a config file is missing
 #   69 - bash version too old
 
@@ -40,14 +48,20 @@ readonly ROOT_CFG="${REPO_ROOT}/.pre-commit-config.yaml"
 readonly TPL_CFG="${REPO_ROOT}/templates/.pre-commit-config.yaml"
 
 if [[ -t 2 ]] && [[ -z "${NO_COLOR:-}" ]]; then
+  readonly _C_INFO=$'\e[1;34m'
+  readonly _C_WARN=$'\e[1;33m'
   readonly _C_ERR=$'\e[1;31m'
   readonly _C_OFF=$'\e[0m'
 else
+  readonly _C_INFO=''
+  readonly _C_WARN=''
   readonly _C_ERR=''
   readonly _C_OFF=''
 fi
 
-error() { printf '%s[ERROR]%s %s\n' "$_C_ERR" "$_C_OFF" "$*" >&2; }
+log()   { printf '%s[INFO]%s  %s\n' "${_C_INFO}" "${_C_OFF}" "$*" >&2; }
+warn()  { printf '%s[WARN]%s  %s\n' "${_C_WARN}" "${_C_OFF}" "$*" >&2; }
+error() { printf '%s[ERROR]%s %s\n' "${_C_ERR}"  "${_C_OFF}" "$*" >&2; }
 
 die() {
   local code=${1:-1}
@@ -70,24 +84,43 @@ trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 
 extract_pins() {
   local file=$1
-  local line trimmed leading
-  local in_local=0
+  local line value
+  local emit=0
   while IFS= read -r line; do
-    # A `- repo: local` line opens a local-hook block; skip until the next
-    # `- repo:` line (which clears the flag below).
-    if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+repo:[[:space:]]+local[[:space:]]*$ ]]; then
-      in_local=1
+    # Refuse the bare-`-` continuation list-item form (e.g. `-` on its own
+    # line followed by `    repo: ...` on the next). It is valid YAML, but
+    # pre-commit-autoupdate and every hand-written config in this repo uses
+    # the inline `- repo: ...` form. Supporting both would require a real
+    # YAML parser; failing loud is safer than silently mishandling drift.
+    if [[ "$line" =~ ^[[:space:]]+-[[:space:]]*(#.*)?$ ]]; then
+      die 1 "unsupported YAML form (bare '-' continuation) in ${file}: rewrite as inline '- repo: ...'"
+    fi
+
+    # Top-level list-item start: `  - repo: <value>`. Value captured up to
+    # the first whitespace or `#` so trailing comments are stripped; quotes
+    # around the value are stripped below.
+    if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+repo:[[:space:]]+([^[:space:]#]+) ]]; then
+      value="${BASH_REMATCH[1]}"
+      value="${value#[\"\']}"
+      value="${value%[\"\']}"
+      if [[ "$value" == "local" ]]; then
+        emit=0
+        continue
+      fi
+      emit=1
+      printf 'repo: %s\n' "$value"
       continue
     fi
-    if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+repo:[[:space:]]+ ]]; then
-      in_local=0
-    fi
-    ((in_local)) && continue
-    if [[ "$line" =~ ^[[:space:]]+(-[[:space:]]+)?(repo|rev):[[:space:]]+ ]]; then
-      leading="${line%%[![:space:]]*}"
-      trimmed="${line#"$leading"}"
-      trimmed="${trimmed#- }"
-      printf '%s\n' "$trimmed"
+
+    # `rev:` key inside the current list item. Only emitted while tracking
+    # an external (non-local) repo entry — the `emit` flag is reset by the
+    # next `- repo:` line regardless of what came before, so a `local`
+    # block can never leak its keys into the comparison.
+    if ((emit)) && [[ "$line" =~ ^[[:space:]]+rev:[[:space:]]+([^[:space:]#]+) ]]; then
+      value="${BASH_REMATCH[1]}"
+      value="${value#[\"\']}"
+      value="${value%[\"\']}"
+      printf 'rev: %s\n' "$value"
     fi
   done <"$file"
 }
@@ -107,8 +140,8 @@ main() {
   error "pre-commit config parity check failed"
   error "root and templates configs declare different (repo, rev) pins:"
   diff -u \
-    --label "$(realpath --relative-to="$REPO_ROOT" "$ROOT_CFG")" \
-    --label "$(realpath --relative-to="$REPO_ROOT" "$TPL_CFG")" \
+    --label '.pre-commit-config.yaml' \
+    --label 'templates/.pre-commit-config.yaml' \
     <(printf '%s\n' "$root_pins") \
     <(printf '%s\n' "$tpl_pins") >&2 || true
   exit 1

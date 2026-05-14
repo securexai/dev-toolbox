@@ -82,5 +82,5 @@ repos:
         name: Pre-commit config parity (root vs templates)
         entry: scripts/check-precommit-parity.sh
         language: script
-        files: '^(\.pre-commit-config\.yaml|templates/\.pre-commit-config\.yaml)$'
+        files: '^(\.pre-commit-config\.yaml|templates/\.pre-commit-config\.yaml|scripts/check-precommit-parity\.sh)$'
         pass_filenames: false
