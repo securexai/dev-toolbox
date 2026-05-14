@@ -43,6 +43,7 @@ The repo runs its own pre-commit baseline:
 | no-commit-to-branch (`main`, `master`, `develop`, `release/*`) | pre-commit | direct commits to protected branches |
 | shellcheck | pre-commit | shell lint violations |
 | markdownlint-cli2 | pre-commit | markdown lint violations |
+| precommit-config-parity (local) | pre-commit | drift between root and `templates/` `.pre-commit-config.yaml` pin sets |
 | commitlint | commit-msg | non-conventional commit messages |
 
 Run the whole gate manually before pushing:
@@ -58,7 +59,7 @@ pre-commit run --all-files
 - [ ] `pre-commit run --all-files` exits 0.
 - [ ] Static validators pass:
       `pnpm dlx markdownlint-cli2@0.22.1 --no-globs **/*.md` and
-      `pnpm dlx shellcheck@4.1.0 setup.sh bootstrap-repo.sh`.
+      `pnpm dlx shellcheck@4.1.0 setup.sh bootstrap-repo.sh scripts/*.sh`.
 - [ ] If the Containerfile changed, a rebuild succeeds:
       `REBUILD=1 ./setup.sh`.
 - [ ] `CHANGELOG.md` `[Unreleased]` updated under the relevant heading.
