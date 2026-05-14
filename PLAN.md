@@ -2,7 +2,7 @@
 
 Status: completed at A+ (locally-runnable criteria); user-verified runbook
 shipped for the remaining container-runtime criteria.
-Owner: Sergio Tapia (`sergio.tapia_contractor@jmfamily.com`).
+Owner: securexai
 Started: 2026-05-13.
 
 ## Goal
