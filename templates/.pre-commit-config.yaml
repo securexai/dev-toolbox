@@ -75,7 +75,7 @@ repos:
   # Shell linting
   # ---------------------------------------------------------------------------
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
         # Default severity is "warning". Drop to --severity=error in repos
@@ -85,6 +85,21 @@ repos:
   # Markdown linting
   # ---------------------------------------------------------------------------
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.18.1
+    rev: v0.23.3
     hooks:
       - id: markdownlint-cli2
+
+  # ---------------------------------------------------------------------------
+  # Shell formatting - check only. Reuses the Fedora RPM shfmt baked into the
+  # dev-toolbox image so every developer machine and CI run the identical
+  # version. `-d` prints a diff and exits non-zero, so files are never
+  # rewritten. ShellSpec spec files are excluded.
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: shfmt
+        name: shfmt (check only)
+        entry: shfmt -d -l -i 2 -ci -bn
+        language: system
+        files: \.sh$
+        exclude: ^spec/

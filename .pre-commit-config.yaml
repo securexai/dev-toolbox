@@ -58,12 +58,12 @@ repos:
           - '@commitlint/config-conventional@19.5.0'
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.18.1
+    rev: v0.23.3
     hooks:
       - id: markdownlint-cli2
         # Templates' own .markdownlint-cli2.yaml is for downstream consumers;
