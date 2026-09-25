@@ -1,69 +1,28 @@
 # dev-toolbox installation
 
-Run on the host (Fedora 43 / 44 Workstation, Silverblue, or Kinoite). All
-steps are idempotent.
+Use a Fedora host with Bash 5.3+, Podman and Toolbx available. Setup fails if
+a prerequisite is missing; it does not install host packages.
+The image uses Fedora 44 independently of the host release. An initial build
+needs network access for the Fedora base, signed packages and Betterleaks.
 
-## Host prerequisites
+## Setup and daily use
 
-- Fedora 43 or 44 with `podman` and `toolbox` available
-  (default on Silverblue/Kinoite; install on Workstation with
-  `sudo dnf install -y podman toolbox`). The toolbox image is pinned to
-  `fedora-toolbox:43` regardless of host — a Fedora 44 host running a 43
-  toolbox is the supported configuration and is how `toolbox` is designed
-  to work.
-- `git` working tree of this repo (no network access required after clone).
-- Bash 5.3+ (Fedora 43 and 44 default).
-- `libatomic` is installed inside the toolbox image, so no host-side
-  `libatomic` package is needed.
+For a guided walkthrough, use the [Toolbox profiles user guide](docs/toolbox-profiles.md).
 
-> [!IMPORTANT]
-> The `setup.sh` script intentionally fails fast if `podman` or `toolbox` are
-> missing. It never invokes `sudo` or `rpm-ostree install`.
+Follow the canonical [setup instructions](README.md#setup) to build and create
+the base, Python and infrastructure environments. The default container is now
+`dev-base`; an existing legacy `dev` container is preserved.
 
-## One-time host setup
+See [versions and updates](README.md#versions-and-updates) for rebuilding,
+replacement containers and rollback. Repositories in `~/code/repos` remain on
+the host when a container is removed. See [verification](README.md#verification)
+for checks.
 
-```bash
-git clone <this-repo> ~/dev-toolbox
-~/dev-toolbox/setup.sh
-```
-
-The script:
-
-1. Verifies `podman` and `toolbox` are on `PATH`.
-2. Builds `localhost/dev-toolbox:fedora-43` from `Containerfile` if the
-   image is missing (or if `REBUILD=1`).
-3. Creates a toolbox container named `dev` from that image if missing.
-
-Typical build time: 3 minutes on a warm dnf cache, 5 minutes cold.
-
-## Per-repo bootstrap
-
-```bash
-toolbox enter dev
-cd /srv/work
-git clone <repo-url> myrepo
-~/dev-toolbox/bootstrap-repo.sh --target /srv/work/myrepo
-```
-
-`bootstrap-repo.sh`:
-
-1. Verifies the target is a git worktree (`.git` entry present).
-2. Drops six template files at the repo root, skipping any that already
-   exist (pass `--force` to overwrite).
-3. Wires pre-commit into `.git/hooks/` for the `pre-commit` and
-   `commit-msg` stages. (The `pre-push` stage is not wired because the
-   template hook set declares no pre-push hooks; add it back when a
-   pre-push hook lands.)
-
-After the script returns, run a one-time audit:
-
-```bash
-cd /srv/work/myrepo
-pre-commit run --all-files
-```
-
-The first run downloads each hook's isolated environment into
-`/opt/pre-commit-cache` (container-local — disappears with `toolbox rm`).
+Inside your chosen container, run
+`bootstrap-repo.sh --target ~/code/repos/<repo>`.
+The first hook installation downloads isolated dependencies into
+`/opt/pre-commit-cache`. Commitlint and markdownlint are provided through these
+hooks rather than global Node packages.
 
 ## Signed-commit setup
 
@@ -89,45 +48,31 @@ signing setup is shared between the host and every toolbox.
 > Azure DevOps branch policies). Local hooks are fast feedback; remote
 > policies are the real gate.
 
-## Daily-use cheatsheet
-
-| Goal | Command |
-| --- | --- |
-| Enter the toolbox | `toolbox enter dev` |
-| Audit the whole tree | `pre-commit run --all-files` |
-| Skip one hook for one commit | `SKIP=<hook-id> git commit ...` |
-| Skip all hooks (last resort) | `git commit --no-verify` |
-| Bump pinned hook revisions | `pre-commit autoupdate` |
-| Reset everything | `toolbox rm dev && ~/dev-toolbox/setup.sh` |
-| Force image rebuild | `REBUILD=1 ~/dev-toolbox/setup.sh` |
-
 ## Troubleshooting
 
-### `libatomic.so.1: cannot open shared object file`
+### Existing container uses an older image
 
-The image installs `libatomic` so this should not occur. If you forked the
-Containerfile and removed `libatomic` from the `dnf install` block, restore
-it - pre-commit's `nodeenv`-built Node binary dynamically links it.
+Setup deliberately stops instead of recreating a container containing work.
+Use a new name, for example `CONTAINER_NAME=dev-python-next ./setup.sh python`,
+verify it, and preserve the old workspace before any manual removal.
 
-### `passt-selinux` AVC during podman build
+### Node hook reports missing libatomic
 
-Fedora 43's `selinux-policy` package has a known AVC for `pasta_t` mounting
-on `tmpfs_t`. `setup.sh` works around this by defaulting
-`--network=slirp4netns`. Override to `pasta` with
-`BUILD_NETWORK=pasta ./setup.sh` once the upstream policy lands.
+The base image includes `libatomic` for hook-managed Node binaries. Check the
+container's image and rebuild the base if using an older or customized image.
 
-### VS Code Dev Containers can't find the `dev` container
+### Build networking fails
 
-Confirm the dockerPath override is set:
+Setup retains `BUILD_NETWORK=slirp4netns` from the previous configuration.
+If that backend is unavailable on your host, select an installed backend with
+`BUILD_NETWORK=pasta ./setup.sh base`. Investigate actual network or SELinux
+errors before changing host security settings.
 
-```bash
-grep dev.containers.dockerPath ~/.config/Code/User/settings.json
-```
+### VS Code cannot find the container
 
-Should print `"dev.containers.dockerPath": "podman"`. Restart VS Code after
-adding that setting.
+Set `dev.containers.dockerPath` to `podman`, start the selected Toolbox,
+and attach to its new profile name, such as `dev-python`.
 
-### `bootstrap-repo.sh: required command not found on PATH`
+### Bootstrap cannot find pre-commit
 
-The script must run inside the toolbox (`toolbox enter dev` first). It
-expects pre-commit and git on PATH; both are baked into the image.
+Run it inside a profile container. Each profile includes Git and pre-commit.

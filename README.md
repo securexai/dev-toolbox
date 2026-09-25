@@ -1,230 +1,156 @@
 # dev-toolbox
 
-A pinned Fedora-toolbox container whose tooling **and** workspace are
-container-local. `toolbox rm dev` (or `podman rm dev`) deletes every tool and
-every repo cloned inside it, leaving the immutable Fedora host filesystem
-untouched.
+Three Fedora Toolbx images provide a shared development baseline and focused
+Python and infrastructure profiles. Build definitions live in this repository;
+images live in your user's rootless Podman storage.
 
-The image bakes uv, ruff, pre-commit, betterleaks, pnpm, commitlint,
-markdownlint-cli2, shellcheck, and shfmt into `/usr/local/bin` and `/opt/`.
-The workspace lives at `/srv/work/`, which the toolbox runtime does **not**
-bind-mount from the host. Three environment variables (`UV_TOOL_DIR`,
-`PRE_COMMIT_HOME`, `UV_TOOL_BIN_DIR`) keep post-build `uv tool install`,
-pre-commit hook caches, and any later tool installations out of `$HOME`.
+Start with the [Toolbox profiles user guide](docs/toolbox-profiles.md) for
+profile selection, first-time setup, daily commands, project storage, updates
+and troubleshooting.
 
-The companion `bootstrap-repo.sh` materialises six enforcement templates
-(pre-commit, betterleaks, commitlint, markdownlint-cli2, editorconfig,
-devcontainer) into any repo cloned under `/srv/work/`.
+## Profiles
 
-## When to use this
+| Profile | Image | Container | Added tools |
+| --- | --- | --- | --- |
+| base | `localhost/dev-base:fedora-44` | `dev-base` | Git, gh, curl, SSH, jq, ripgrep, archives, make, pre-commit, ShellCheck, shfmt, Betterleaks |
+| python | `localhost/dev-python:fedora-44` | `dev-python` | Base plus Python, uv and Ruff |
+| infra | `localhost/dev-infra:fedora-44` | `dev-infra` | Python plus PyYAML, yamllint, OpenSSL, iproute, ping, DNS tools, Ncat and Restic |
 
-Use dev-toolbox when **all four** of the following are true:
+The base is `Containerfile`; derived definitions are in `profiles/`.
+Infrastructure inherits Python so it shares the same Python tools.
+Python is already present in the base as a pre-commit dependency, but uv and
+Ruff belong to the Python profile. `libatomic` supports Node binaries downloaded
+by the existing pre-commit hooks.
 
-- The host is Fedora 43 or 44 (Workstation, Silverblue, or Kinoite), and you
-  do not want to mutate the host with `dnf` or `rpm-ostree install`.
-- You want one container image that pins every linter, formatter, and scanner
-  your repos depend on — same versions on every host that pulls the image.
-- You want to clone repos into a place that disappears when the container is
-  deleted, so "reset my dev env" is a single `toolbox rm` away.
-- Your editor is VS Code (with the Dev Containers extension), or you are
-  comfortable running an editor inside the toolbox itself (`nvim`, `helix`,
-  `emacs -nw`).
+Node, pnpm, commitlint and markdownlint are no longer installed as global image
+tools. Existing pinned hooks provision their own runtimes and dependencies.
+Project frameworks, tests and libraries belong in project manifests and lockfiles.
+ShellSpec, Trivy, Ansible and deployment tooling require a project-specific
+extension and validation; this initial profile does not replace MikroTik's Devbox
+environment or its deployment gates.
 
-The container image itself is pinned to `fedora-toolbox:43` regardless of
-host version, so the host/toolbox skew of a Fedora 44 host running a 43
-toolbox is the supported configuration — that is how `toolbox` is designed
-to be used, and the pinned image is what gives every host the same tool
-versions.
+## Setup
 
-If you only need the linter/formatter/scanner suite installed on the **host**
-(and you do not need the workspace to be disposable), the lighter-weight
-[`repo-bootstrap` skill][repo-bootstrap-skill] is the right tool. dev-toolbox
-exists for the case where `repo-bootstrap` is the wrong shape because it
-installs into `$HOME`.
-
-[repo-bootstrap-skill]: https://github.com/conpwxp/dotclaude
-
-## Quickstart
-
-One-time per host (outside the toolbox):
+On a Fedora host with Bash 5.3+, Podman and Toolbx:
 
 ```bash
-git clone <this-repo> ~/dev-toolbox
-~/dev-toolbox/setup.sh           # builds image + creates `dev` container
+./setup.sh base
+./setup.sh python
+./setup.sh infra
+toolbox enter dev-python
 ```
 
-Per repo (inside the toolbox):
+No argument selects `base`. Setup builds missing parents automatically.
+Build images without creating containers using `./setup.sh infra --build-only`.
+Existing containers are reused only when their image ID matches. A mismatch
+stops with a recovery message; rebuilding an image does not update a container.
+
+Inside your chosen Toolbox:
 
 ```bash
-toolbox enter dev
-cd /srv/work
+mkdir -p ~/code/repos
+cd ~/code/repos
 git clone <repo-url> myrepo
-~/dev-toolbox/bootstrap-repo.sh --target /srv/work/myrepo
-pre-commit run --all-files       # warm cache, audit current tree
+~/dev-toolbox/bootstrap-repo.sh --target ~/code/repos/myrepo
+cd myrepo
+pre-commit run --all-files
 ```
 
-Reset everything to a clean state:
+The bootstrap copies six templates and installs pre-commit and commit-msg hooks.
+Existing files are preserved unless explicitly invoked with `--force`.
+First-time hook setup needs network access.
+
+For an optional host pnpm installation, see
+[host pnpm installation and removal](docs/host-pnpm.md).
+Host prerequisites and signing setup are in [INSTALL.md](INSTALL.md).
+
+## Storage and security
+
+Toolbx shares the host home directory and user session. Use it for trusted
+development; it is not a security sandbox. Keep credentials outside images.
+Untrusted scripts and agents need a separately configured restricted container.
+
+| Location | Purpose | Persists after container removal? |
+| --- | --- | --- |
+| `~/code/repos` | Host-shared project workspace | Yes |
+| `/opt/pre-commit-cache` | Hook environments | No |
+| `/opt/uv-tools`, `/opt/uv-bin` | User-installable Python tools | No |
+| `/opt/uv-cache`, `/opt/uv-python` | uv cache and managed Python versions | No |
+| Host home directory | Identity, editor state, host repositories | Yes |
+
+Managed directories are writable with a sticky bit for Toolbx's host UID.
+Other programs can still write to shared home; these settings do not guarantee
+that all development activity stays inside container storage.
+Repositories under `~/code/repos` remain available after removing a container.
+
+For VS Code, set `dev.containers.dockerPath` to `podman`, start the Toolbox,
+then use **Attach to Running Container** and open `~/code/repos/myrepo`.
+The supplied Dev Container template defaults to the base image. **Reopen in
+Container** can automatically mount the host workspace even without an explicit
+`workspaceMount`; that workspace is not disposable container storage.
+
+## Versions and updates
+
+`versions.env` selects Fedora 44. Fedora packages, including uv and Ruff, follow
+signed Fedora repository updates; a rebuild can resolve newer versions.
+Betterleaks retains its exact version and SHA-256 in `Containerfile`.
+This is not a byte-for-byte reproducible build or a frozen RPM snapshot.
+
+Each image records resolved RPM versions in
+`/usr/share/dev-toolbox/rpm-manifest.txt`. Inspect the image ID with
+`podman image inspect --format '{{.Id}}' localhost/dev-python:fedora-44`.
+Derived builds use the local parent's exact image ID and rebuild when it changes.
+
+Review updates monthly and promptly for applicable security fixes. Rebuild and
+verify all profiles together, retain the old containers during validation, and
+record image IDs before replacing any environment:
 
 ```bash
-exit                             # leave the toolbox shell first
-toolbox rm dev
-~/dev-toolbox/setup.sh           # container is back in ~3 min
+REFRESH=1 ./setup.sh infra --build-only
+CONTAINER_NAME=dev-infra-next ./setup.sh infra
+bash scripts/verify.sh infra dev-infra-next
 ```
 
-`toolbox rm` deletes the container's overlay filesystem, including
-`/srv/work/myrepo`. The host's `$HOME` is untouched — your dotfiles, git
-config, SSH keys, and `~/.vscode-server/` cache are all still there for the
-next toolbox.
-
-## VS Code integration
-
-Two supported flows:
-
-### Attach to running container (recommended)
-
-This flow preserves the disposal property — the repo lives inside the
-container only.
-
-1. Install the **Dev Containers** extension in VS Code on the host.
-2. Add to `settings.json`:
-
-   ```json
-   "dev.containers.dockerPath": "podman"
-   ```
-
-3. Start the toolbox once (`toolbox enter dev`, then `exit`), so the container
-   is running.
-4. In VS Code: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> → **Dev
-   Containers: Attach to Running Container...** → pick `dev`.
-5. In the new window: **File → Open Folder** → `/srv/work/myrepo`.
-
-VS Code Server installs into `~/.vscode-server/` the first time you attach.
-That path is in `$HOME`, which the toolbox bind-mounts from the host, so the
-server persists across `toolbox rm` cycles — that is desirable (faster
-re-attach next time).
-
-### Dev containers "Reopen in container"
-
-This flow uses the `templates/.devcontainer/devcontainer.json` that
-`bootstrap-repo.sh` drops into every target repo. With this flow VS Code
-creates a sibling container alongside `dev` for each repo. It **loses** the
-disposal property if you add a `workspaceMount` that bind-mounts the host
-folder — the template intentionally omits that key.
-
-Pick this flow only when you need per-repo container customisation that the
-shared `dev` toolbox cannot provide (different base image, different
-extension list, etc.).
-
-## What lives where, and what dies when
-
-| Location | What lives there | Survives `toolbox rm dev`? |
-| --- | --- | --- |
-| `/usr/local/bin/` (in image) | uv, ruff, pnpm, betterleaks, commitlint, markdownlint-cli2, shellcheck, shfmt | No |
-| `/opt/uv-tools/` (in image) | post-build `uv tool install` targets | No |
-| `/opt/pnpm-global/` (in image) | pnpm global package store | No |
-| `/opt/pre-commit-cache/` (in image) | pre-commit hook environments | No |
-| `/srv/work/<repo>/` (in image) | cloned repos | No |
-| `$HOME/.vscode-server/` (host) | VS Code Server backend | Yes (deliberate) |
-| `$HOME/.ssh/`, `$HOME/.gitconfig` (host) | user identity | Yes (deliberate) |
-| Host Fedora root filesystem | rpm-ostree deployment | Untouched (deliberate) |
-
-## What ships in the image
-
-System packages installed via `dnf` (with `install_weak_deps=False` to drop
-unneeded `nodejs-npm`, `nodejs-docs`, and `nodejs-full-i18n`):
-
-| Package | Why |
-| --- | --- |
-| `git` | Version control |
-| `gh` | GitHub CLI; satisfies git credential helper when wired |
-| `pre-commit` | Pre-commit framework |
-| `nodejs` | Runtime for pnpm-installed globals |
-| `python3` | Pre-commit hook interpreter |
-| `curl`, `ca-certificates` | Installer fetches |
-| `jq`, `ripgrep` | Dev utilities |
-| `libatomic` | Required by some Node native modules |
-| `shellcheck` | Shell linter (also used by the pre-commit hook for CI parity) |
-| `shfmt` | Shell formatter |
-
-Pinned binaries (sha256-verified where the upstream publishes a checksum):
-
-| Tool | Pinned version | Install path |
-| --- | --- | --- |
-| `uv` | `0.11.8` | `/usr/local/bin/uv` |
-| `ruff` | latest at image build | `/opt/uv-tools/`, on PATH |
-| `betterleaks` | `1.1.2` (sha256-pinned) | `/usr/local/bin/betterleaks` |
-| `pnpm` | `11.0.3` (sha256-pinned) | `/opt/pnpm/`, on PATH |
-| `@commitlint/cli` | latest at image build (pnpm-installed, ad-hoc CLI only) | `/usr/local/bin/commitlint` |
-| `markdownlint-cli2` | latest at image build (pnpm-installed, ad-hoc CLI only) | `/usr/local/bin/markdownlint-cli2` |
-
-> [!NOTE]
-> The commitlint pre-commit hook is `language: node` and self-provisions
-> `@commitlint/cli` + `@commitlint/config-conventional` via
-> `additional_dependencies` in `templates/.pre-commit-config.yaml`. The
-> markdownlint-cli2 hook is version-pinned via the hook repo's `rev:` tag
-> (no `additional_dependencies` block). Either way, the pnpm-installed
-> binaries above are for ad-hoc terminal use inside the toolbox — they are
-> not what runs during `pre-commit run`.
-
-Refresh the floating versions by rebuilding the image: `REBUILD=1 ./setup.sh`.
-
-## Templates dropped into each target repo
-
-`bootstrap-repo.sh` copies the following from `templates/` into a target repo
-(idempotent: existing files are skipped unless `--force` is passed):
-
-| File | Purpose |
-| --- | --- |
-| `.pre-commit-config.yaml` | Hook list - what runs at which stage |
-| `.betterleaks.toml` | Secret-scan rules + allowlist |
-| `commitlint.config.js` | Conventional-commit rules |
-| `.markdownlint-cli2.yaml` | Markdown lint config |
-| `.editorconfig` | EOL/indent baseline |
-| `.devcontainer/devcontainer.json` | VS Code Dev Containers config |
-
-## Environment knobs
+Keep the old container until its work is preserved and the replacement passes.
+Rollback consists of re-entering the old container. Setup never removes it.
+After editing a definition, use `REBUILD=1`; ordinary reruns reuse existing images.
+`REBUILD=1` permits cached layers. Use `REFRESH=1` to pull the Fedora base and
+rerun package installation without cached layers when applying upstream updates.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `REBUILD` | unset | Set to `1` to force `podman build` even if image exists |
-| `TRACE` | unset | Set to `1` for `bash -x` xtrace through `setup.sh` |
-| `NO_COLOR` | unset | Set to suppress ANSI colors in log output |
-| `IMAGE_REF` | `localhost/dev-toolbox:fedora-43` | Override image reference |
-| `CONTAINER_NAME` | `dev` | Override toolbox container name |
+| `REBUILD` | unset | Set to `1` to rebuild the selected profile and parents |
+| `REFRESH` | unset | Set to `1` to pull the Fedora base and rebuild without cache |
+| `IMAGE_REF` | Profile image above | Override final image tag |
+| `CONTAINER_NAME` | Profile container above | Override final container name |
 | `BUILD_NETWORK` | `slirp4netns` | Podman build network backend |
+| `TRACE` | unset | Set to `1` for setup shell tracing |
+| `NO_COLOR` | unset | Disable colored setup messages |
 
-Inside the container, these are set automatically by the image (do not export
-them yourself):
-
-| Variable | Value | Purpose |
-| --- | --- | --- |
-| `UV_TOOL_DIR` | `/opt/uv-tools` | Where `uv tool install` writes |
-| `UV_TOOL_BIN_DIR` | `/usr/local/bin` | Where uv tool shims land |
-| `PRE_COMMIT_HOME` | `/opt/pre-commit-cache` | Where pre-commit caches envs |
-
-## Verify
-
-After `setup.sh` and `bootstrap-repo.sh`, confirm the disposal property:
+## Verification
 
 ```bash
-toolbox enter dev
-# Confirm tools are container-local
-ls /usr/local/bin/uv /usr/local/bin/betterleaks /usr/local/bin/pnpm
-ls /opt/uv-tools /opt/pnpm-global /opt/pre-commit-cache
-# Confirm $HOME is host-shared (expected)
-echo "$HOME"
-ls -la "$HOME/.gitconfig" 2>/dev/null || echo "no host gitconfig"
-# Confirm /srv/work is container-local
-ls -ld /srv/work
-exit
-
-# Outside the toolbox, $HOME is unchanged; /srv/work does not exist on host.
-ls /srv/work 2>&1   # expected: 'No such file or directory'
+bash scripts/test-setup.sh
+bash scripts/verify.sh base
+bash scripts/verify.sh python
+bash scripts/verify.sh infra
+./scripts/check-precommit-parity.sh
+pre-commit run --all-files
 ```
 
-See [INSTALL.md](INSTALL.md) for the host prerequisites and signing-key
-setup, and [PLAN.md](PLAN.md) for the deployment plan and iteration log.
+The setup tests use mock runtimes to check profile ordering, reuse and failures.
+The verifier runs inside each real Toolbox, checks tool availability and writable
+managed paths, and exercises Python/YAML locally without downloading dependencies.
+See the [execution record](docs/plans/2026-09-18-toolbox-profiles.md) for actual
+results and remaining gates. [PLAN.md](PLAN.md) retains historical work.
+
+## Sources
+
+Package availability checked against Fedora's
+[uv package](https://packages.fedoraproject.org/pkgs/uv/uv/) and the actual image
+build transactions. See [Toolbx documentation](https://containertoolbx.org/doc/)
+for its host integration.
 
 ## License
 
-MIT - see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

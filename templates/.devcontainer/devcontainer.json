@@ -1,11 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
   "name": "dev-toolbox",
-  "image": "localhost/dev-toolbox:fedora-43",
+  "image": "localhost/dev-base:fedora-44",
   "containerEnv": {
     "PRE_COMMIT_HOME": "/opt/pre-commit-cache",
     "UV_TOOL_DIR": "/opt/uv-tools",
-    "UV_TOOL_BIN_DIR": "/usr/local/bin"
+    "UV_TOOL_BIN_DIR": "/opt/uv-bin",
+    "UV_CACHE_DIR": "/opt/uv-cache",
+    "UV_PYTHON_INSTALL_DIR": "/opt/uv-python"
   },
   "customizations": {
     "vscode": {

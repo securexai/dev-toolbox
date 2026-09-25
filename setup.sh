@@ -1,23 +1,24 @@
 #!/usr/bin/env bash
 #
-# setup.sh - Build the pinned dev-toolbox image and create the `dev` toolbox
+# setup.sh - Build a development profile and create its Toolbox
 # container. Idempotent: safe to re-run. Set REBUILD=1 to force an image
 # rebuild.
 #
 # Usage:
-#   ./setup.sh              # build if missing, create container if missing
+#   ./setup.sh [base|python|infra] [--build-only]
 #   REBUILD=1 ./setup.sh    # rebuild image even if present
 #   TRACE=1   ./setup.sh    # bash -x trace through the script
 #
 # Env:
 #   REBUILD         - "1" forces podman build even if image exists
+#   REFRESH         - "1" also pulls the Fedora base and disables build cache
 #   TRACE           - "1" enables bash xtrace
 #   NO_COLOR        - any value suppresses ANSI colors in log output
 #   BUILD_NETWORK   - podman build network backend (default: slirp4netns to
-#                     work around Fedora 43 passt-selinux AVC; override to
+#                     work around a Fedora passt-selinux AVC; override to
 #                     "pasta" once the policy ships upstream)
-#   IMAGE_REF       - override image reference (default: localhost/dev-toolbox:fedora-43)
-#   CONTAINER_NAME  - override container name (default: dev)
+#   IMAGE_REF       - override final image (default: localhost/dev-PROFILE:fedora-44)
+#   CONTAINER_NAME  - override container name (default: dev-PROFILE)
 
 if ((BASH_VERSINFO[0] < 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] < 3))); then
   printf 'ERROR: This script requires Bash 5.3+. Current: %s\n' "$BASH_VERSION" >&2
@@ -33,9 +34,11 @@ shopt -s nullglob
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
-readonly CONTAINERFILE="${SCRIPT_DIR}/Containerfile"
-readonly IMAGE_REF="${IMAGE_REF:-localhost/dev-toolbox:fedora-43}"
-readonly CONTAINER_NAME="${CONTAINER_NAME:-dev}"
+# Release settings are validated separately; hooks lint this script in isolation.
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/versions.env"
+PROFILE=base
+BUILD_ONLY=0
 
 if [[ -t 2 ]] && [[ -z "${NO_COLOR:-}" ]]; then
   readonly _C_INFO=$'\e[1;34m'
@@ -77,34 +80,50 @@ require_cmd() {
     || die 69 "required command not found on PATH: $1"
 }
 
-image_exists() {
-  podman image exists "${IMAGE_REF}"
-}
-
 container_exists() {
   podman container exists "${CONTAINER_NAME}"
 }
 
 build_image() {
-  if image_exists && [[ "${REBUILD:-0}" != "1" ]]; then
-    log "image ${IMAGE_REF} already present (set REBUILD=1 to force rebuild)"
+  local profile=$1 image=$2 parent=${3:-} containerfile parent_id=''
+  local -a args=()
+  containerfile="${SCRIPT_DIR}/Containerfile"
+  if [[ "$profile" != base ]]; then
+    containerfile="${SCRIPT_DIR}/profiles/Containerfile.${profile}"
+    parent_id=$(podman image inspect --format '{{.Id}}' "$parent")
+    args+=(--build-arg "BASE_IMAGE=${parent_id}" --pull=never
+      --label "io.dev-toolbox.parent-id=${parent_id}")
+  else
+    args+=(--build-arg "FEDORA_RELEASE=${FEDORA_RELEASE}")
+    if [[ "${REFRESH:-0}" == 1 ]]; then args+=(--pull=always); fi
+  fi
+  if [[ "${REFRESH:-0}" == 1 ]]; then args+=(--no-cache); fi
+  if podman image exists "$image" && [[ "${REBUILD:-0}" != 1 && "${REFRESH:-0}" != 1 ]] &&
+    { [[ "$profile" == base ]] ||
+      [[ $(podman image inspect --format '{{index .Labels "io.dev-toolbox.parent-id"}}' "$image") == "$parent_id" ]]; }; then
+    log "image ${image} already present (set REBUILD=1 to rebuild changed definitions)"
     return 0
   fi
-  log "building ${IMAGE_REF} from ${CONTAINERFILE}"
+  log "building ${image} from ${containerfile}"
   # slirp4netns sidesteps the F43 passt-selinux AVC; override to pasta once
   # selinux-policy ships the fix.
   podman build \
     --network "${BUILD_NETWORK:-slirp4netns}" \
-    --tag "${IMAGE_REF}" \
-    --file "${CONTAINERFILE}" \
+    "${args[@]}" \
+    --tag "${image}" \
+    --file "${containerfile}" \
     "${SCRIPT_DIR}"
-  image_exists \
-    || die 70 "build reported success but image ${IMAGE_REF} is not present"
-  log "image ${IMAGE_REF} ready"
+  podman image exists "$image" \
+    || die 70 "build reported success but image ${image} is not present"
 }
 
 create_container() {
   if container_exists; then
+    local expected actual
+    expected=$(podman image inspect --format '{{.Id}}' "$IMAGE_REF")
+    actual=$(podman container inspect --format '{{.Image}}' "$CONTAINER_NAME")
+    [[ "$expected" == "$actual" ]] ||
+      die 70 "container '${CONTAINER_NAME}' uses an older/different image. Preserve its work and choose a new CONTAINER_NAME."
     log "toolbox container '${CONTAINER_NAME}' already exists"
     return 0
   fi
@@ -116,17 +135,39 @@ create_container() {
 }
 
 main() {
+  case "${1:-base}" in
+    -h|--help)
+      printf 'Usage: %s [base|python|infra] [--build-only]\n' "$0"
+      return 0 ;;
+    base|python|infra) PROFILE=${1:-base} ;;
+    *) die 64 "unknown profile: $1 (choose base, python or infra)" ;;
+  esac
+  if (($# > 0)); then shift; fi
+  if [[ "${1:-}" == --build-only ]]; then BUILD_ONLY=1; shift; fi
+  (($# == 0)) || die 64 "unexpected argument: $1"
+  readonly PROFILE BUILD_ONLY
+  IMAGE_REF=${IMAGE_REF:-localhost/dev-${PROFILE}:fedora-${FEDORA_RELEASE}}
+  CONTAINER_NAME=${CONTAINER_NAME:-dev-${PROFILE}}
+  readonly IMAGE_REF CONTAINER_NAME
   require_cmd podman
-  require_cmd toolbox
-  [[ -f "${CONTAINERFILE}" ]] \
-    || die 66 "Containerfile not found: ${CONTAINERFILE}"
-
-  build_image
+  if ((BUILD_ONLY == 0)); then require_cmd toolbox; fi
+  local base_ref="localhost/dev-base:fedora-${FEDORA_RELEASE}"
+  local python_ref="localhost/dev-python:fedora-${FEDORA_RELEASE}"
+  if [[ "$PROFILE" != base && "$IMAGE_REF" == "$base_ref" ]] ||
+    [[ "$PROFILE" == infra && "$IMAGE_REF" == "$python_ref" ]]; then
+    die 64 "IMAGE_REF must not overwrite a parent profile tag"
+  fi
+  if [[ "$PROFILE" == base ]]; then base_ref=$IMAGE_REF; fi
+  if [[ "$PROFILE" == python ]]; then python_ref=$IMAGE_REF; fi
+  build_image base "$base_ref"
+  if [[ "$PROFILE" != base ]]; then build_image python "$python_ref" "$base_ref"; fi
+  if [[ "$PROFILE" == infra ]]; then build_image infra "$IMAGE_REF" "$python_ref"; fi
+  if ((BUILD_ONLY)); then return 0; fi
   create_container
 
   log "done. enter the toolbox with:"
   printf '        toolbox enter %s\n' "${CONTAINER_NAME}" >&2
-  log "then clone a repo under /srv/work and run ./bootstrap-repo.sh /srv/work/<repo>"
+  log "then clone a repo under ~/code/repos and run ./bootstrap-repo.sh --target ~/code/repos/<repo>"
 }
 
 main "$@"

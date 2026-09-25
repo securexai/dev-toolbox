@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+ARG BASE_IMAGE=localhost/dev-python:fedora-44
+FROM ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="dev-infra"
+# Initial operations profile. Deployment-specific tools stay owned by the project.
+RUN dnf install -y --setopt=install_weak_deps=False \
+      python3-pyyaml yamllint openssl iproute iputils bind-utils nmap-ncat restic \
+ && dnf clean all \
+ && python3 -c 'import yaml' && yamllint --version && restic version \
+ && rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' \
+      | sort > /usr/share/dev-toolbox/rpm-manifest.txt

@@ -1,0 +1,10 @@
+# syntax=docker/dockerfile:1
+ARG BASE_IMAGE=localhost/dev-base:fedora-44
+FROM ${BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="dev-python"
+RUN dnf install -y --setopt=install_weak_deps=False python3 uv ruff \
+ && dnf clean all \
+ && python3 --version && uv --version && ruff --version \
+ && rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' \
+      | sort > /usr/share/dev-toolbox/rpm-manifest.txt

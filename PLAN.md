@@ -71,6 +71,14 @@ hand-off.
 
 ## Iteration log
 
+The three-profile implementation is tracked in the
+[Toolbox profiles execution record](docs/plans/2026-09-18-toolbox-profiles.md).
+The earlier monolithic-image acceptance and completion statements are historical.
+
+The separate 2026-09-15 host pnpm utility and its review are tracked in the
+[host pnpm execution record](docs/plans/2026-09-15-host-pnpm.md). The completed
+container baseline below remains historical.
+
 Records every code-reviewer pass, the verdict it returned, and what was
 applied or deferred between passes.
 
