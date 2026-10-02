@@ -64,6 +64,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Set `shellcheck` pre-commit severity to the default `warning` instead of
   `--severity=error`. The `scripts/` baseline had error severity as a
   temporary workaround for legacy code; new repos do not need it.
+- The README and profile guide now record MikroTik's migration from Devbox
+  to a dedicated `dev-infra-mikrotik` infrastructure container.
 
 ### Removed
 

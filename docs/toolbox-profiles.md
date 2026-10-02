@@ -171,9 +171,11 @@ Run the project's documented offline tests before using operational commands.
 Having Restic or network clients installed does not configure credentials,
 backups, router access or deployment permissions.
 
-For MikroTik, retain the existing Devbox workflow until compatibility is tested.
-The initial Toolbox build has Python 3.14, while that project's declaration uses
-Python 3.13. The infrastructure profile is not yet a validated replacement.
+MikroTik's migration from Devbox uses this profile in a dedicated container,
+created with `CONTAINER_NAME=dev-infra-mikrotik ./setup.sh infra`. On 2026-10-02
+its RouterOS and VLAN 30 offline suites and its pre-commit hooks passed there
+with Python 3.14.7. The MikroTik contributor guide owns those commands, and live
+router and switch changes stay outside the Toolbox.
 
 ## Use an editor
 

@@ -26,8 +26,9 @@ Node, pnpm, commitlint and markdownlint are no longer installed as global image
 tools. Existing pinned hooks provision their own runtimes and dependencies.
 Project frameworks, tests and libraries belong in project manifests and lockfiles.
 ShellSpec, Trivy, Ansible and deployment tooling require a project-specific
-extension and validation; this initial profile does not replace MikroTik's Devbox
-environment or its deployment gates.
+extension and validation. MikroTik's migration from Devbox uses the `infra`
+profile; see [Infrastructure daily workflow](docs/toolbox-profiles.md#infrastructure-daily-workflow).
+Its deployment gates stay with that project.
 
 ## Setup
 
